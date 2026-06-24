@@ -260,27 +260,15 @@ function setupObserver() {
   const chatContainer = firstTurn.parentElement;
   if (!chatContainer) return;
 
-  observer = new MutationObserver((mutations) => {
-    let hasNewTurns = false;
-    for (const mutation of mutations) {
-      for (const node of mutation.addedNodes) {
-        if (node.nodeType === 1 && (
-          node.matches?.(SELECTORS.turnWrapper) ||
-          node.querySelector?.(SELECTORS.turnWrapper)
-        )) {
-          hasNewTurns = true;
-          break;
-        }
-      }
-      if (hasNewTurns) break;
-    }
-    if (hasNewTurns) {
+  let checkTimer = null;
+  observer = new MutationObserver(() => {
+    if (checkTimer) clearTimeout(checkTimer);
+    checkTimer = setTimeout(() => {
       const turns = document.querySelectorAll(SELECTORS.turnWrapper);
-      const lastTurn = turns[turns.length - 1];
-      if (lastTurn) {
-        processMessage(lastTurn);
+      if (turns.length > 0) {
+        processMessage(turns[turns.length - 1]);
       }
-    }
+    }, 300);
   });
 
   observer.observe(chatContainer, { childList: true, subtree: true });

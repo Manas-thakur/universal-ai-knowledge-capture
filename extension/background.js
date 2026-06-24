@@ -2,6 +2,48 @@ importScripts('lib/db.js', 'lib/dedup.js');
 
 const messageDedupCache = new LRUCache(2000);
 
+const messageBuffer = new Map();
+const FLUSH_INTERVAL_MS = 3000;
+const FLUSH_MAX_SIZE = 20;
+let flushTimer = null;
+
+function bufferMessage(platform, conversationId, messageBlock) {
+  const key = `${platform}:${conversationId}`;
+  if (!messageBuffer.has(key)) {
+    messageBuffer.set(key, { platform, conversation_id: conversationId, blocks: [] });
+  }
+  messageBuffer.get(key).blocks.push(messageBlock);
+  if (messageBuffer.get(key).blocks.length >= FLUSH_MAX_SIZE) {
+    flushSingleConversation(key);
+  } else {
+    scheduleFlush();
+  }
+}
+
+function scheduleFlush() {
+  if (flushTimer) clearTimeout(flushTimer);
+  flushTimer = setTimeout(flushAllConversations, FLUSH_INTERVAL_MS);
+}
+
+async function flushSingleConversation(key) {
+  const entry = messageBuffer.get(key);
+  if (!entry || entry.blocks.length === 0) return;
+  messageBuffer.delete(key);
+
+  const { platform, conversation_id, blocks } = entry;
+  const combined = '\n' + blocks.join('\n');
+  await appendMessage(platform, conversation_id, combined);
+}
+
+async function flushAllConversations() {
+  flushTimer = null;
+  const entries = Array.from(messageBuffer.entries());
+  messageBuffer.clear();
+  for (const [key] of entries) {
+    await flushSingleConversation(key);
+  }
+}
+
 const OFFSCREEN_DOC_PATH = 'offscreen/offscreen.html';
 const OFFSCREEN_DOC_REASON = 'FILE_SYSTEM_ACCESS';
 const INACTIVITY_TIMEOUT_MS = 60000;
@@ -170,7 +212,8 @@ async function handleMessageCaptured(payload, tabId) {
   }
 
   const messageBlock = buildMessageBlock(role, model, timestamp, content, message_id, attachments);
-  filePath = await appendMessage(platform, conversation_id, messageBlock);
+  bufferMessage(platform, conversation_id, messageBlock);
+  filePath = `platforms/${platform}/conversations/${conversation_id}.md`;
 
   await updateSyncState(conversation_id, message_id);
 
