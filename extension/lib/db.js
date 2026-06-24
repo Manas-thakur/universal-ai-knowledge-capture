@@ -36,7 +36,7 @@ async function getObjectStore(name, mode = 'readonly') {
   return { store: tx.objectStore(name), tx, db };
 }
 
-export async function getMetadata(key) {
+async function getMetadata(key) {
   const { store } = await getObjectStore('metadata');
   return new Promise((resolve) => {
     const req = store.get(key);
@@ -45,7 +45,7 @@ export async function getMetadata(key) {
   });
 }
 
-export async function setMetadata(key, data) {
+async function setMetadata(key, data) {
   const { store, tx } = await getObjectStore('metadata', 'readwrite');
   store.put({ key, ...data });
   return new Promise((resolve) => {
@@ -53,7 +53,7 @@ export async function setMetadata(key, data) {
   });
 }
 
-export async function getSyncState(conversationId) {
+async function getSyncState(conversationId) {
   const { store } = await getObjectStore('sync_state');
   return new Promise((resolve) => {
     const req = store.get(conversationId);
@@ -62,7 +62,7 @@ export async function getSyncState(conversationId) {
   });
 }
 
-export async function updateSyncState(conversationId, messageId) {
+async function updateSyncState(conversationId, messageId) {
   const { store, tx } = await getObjectStore('sync_state', 'readwrite');
   const existing = await new Promise((resolve) => {
     const req = store.get(conversationId);
@@ -88,13 +88,13 @@ export async function updateSyncState(conversationId, messageId) {
   });
 }
 
-export async function isMessageProcessed(conversationId, messageId) {
+async function isMessageProcessed(conversationId, messageId) {
   const state = await getSyncState(conversationId);
   if (!state) return false;
   return state.processed_messages.includes(messageId);
 }
 
-export async function updateSearchIndex(keyword, filePath) {
+async function updateSearchIndex(keyword, filePath) {
   const { store, tx } = await getObjectStore('search_index', 'readwrite');
   const existing = await new Promise((resolve) => {
     const req = store.get(keyword.toLowerCase());
@@ -113,7 +113,7 @@ export async function updateSearchIndex(keyword, filePath) {
   });
 }
 
-export async function getDirectoryHandle() {
+async function getDirectoryHandle() {
   const { store } = await getObjectStore('directory_handle');
   return new Promise((resolve) => {
     const req = store.get('vault');
@@ -122,7 +122,7 @@ export async function getDirectoryHandle() {
   });
 }
 
-export async function setDirectoryHandle(handle) {
+async function setDirectoryHandle(handle) {
   const { store, tx } = await getObjectStore('directory_handle', 'readwrite');
   store.put({ id: 'vault', handle, permission: 'granted' });
   return new Promise((resolve) => {
@@ -130,7 +130,7 @@ export async function setDirectoryHandle(handle) {
   });
 }
 
-export async function addPendingMessage(platform, conversationId, message) {
+async function addPendingMessage(platform, conversationId, message) {
   const { store, tx } = await getObjectStore('pending_messages', 'readwrite');
   store.add({ platform, conversation_id: conversationId, message, queued_at: new Date().toISOString() });
   return new Promise((resolve) => {
@@ -138,7 +138,7 @@ export async function addPendingMessage(platform, conversationId, message) {
   });
 }
 
-export async function getAllPendingMessages() {
+async function getAllPendingMessages() {
   const { store } = await getObjectStore('pending_messages');
   return new Promise((resolve) => {
     const req = store.getAll();
@@ -147,7 +147,7 @@ export async function getAllPendingMessages() {
   });
 }
 
-export async function clearPendingMessages() {
+async function clearPendingMessages() {
   const { store, tx } = await getObjectStore('pending_messages', 'readwrite');
   store.clear();
   return new Promise((resolve) => {
@@ -155,7 +155,7 @@ export async function clearPendingMessages() {
   });
 }
 
-export async function addPendingAttachment(entry) {
+async function addPendingAttachment(entry) {
   const { store, tx } = await getObjectStore('pending_attachments', 'readwrite');
   store.add({ ...entry, queued_at: new Date().toISOString() });
   return new Promise((resolve) => {
