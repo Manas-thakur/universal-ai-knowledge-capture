@@ -7,6 +7,9 @@ const SELECTORS = {
   messageContent: '.whitespace-pre-wrap',
   modelBadge: '[data-testid="model-badge"]',
   title: 'h1, [data-testid="conversation-title"]',
+  projectTitle: '[data-testid="project-title"], h1',
+  projectInstructions: '[data-testid="project-instructions"], .prose:not(.whitespace-pre-wrap)',
+  projectKnowledgeLinks: 'a[href*="cdn"]',
 };
 
 let currentConversationId = null;
@@ -30,6 +33,50 @@ function extractTitle() {
   const el = document.querySelector(SELECTORS.title);
   if (el) return el.textContent.trim();
   return document.title.replace(' - ChatGPT', '').trim() || 'Untitled';
+}
+
+function isProjectPage() {
+  return !!extractProjectId() && !extractConversationId();
+}
+
+function extractProjectInstructions() {
+  if (!isProjectPage()) return null;
+  const el = document.querySelector(SELECTORS.projectInstructions);
+  return el ? el.textContent.trim() : null;
+}
+
+function extractProjectKnowledgeUrls() {
+  if (!isProjectPage()) return [];
+  const urls = [];
+  const links = document.querySelectorAll(SELECTORS.projectKnowledgeLinks);
+  for (const link of links) {
+    const href = link.getAttribute('href');
+    if (href && !urls.includes(href)) {
+      urls.push(href);
+    }
+  }
+  return urls;
+}
+
+function detectProject() {
+  const projectId = extractProjectId();
+  if (!projectId) return;
+
+  const title = extractTitle();
+  const instructions = extractProjectInstructions();
+  const knowledgeUrls = extractProjectKnowledgeUrls();
+
+  chrome.runtime.sendMessage({
+    type: 'PROJECT_DETECTED',
+    payload: {
+      platform: PLATFORM,
+      project_id: projectId,
+      title,
+      url: window.location.href,
+      instructions,
+      knowledge_file_urls: knowledgeUrls.length > 0 ? knowledgeUrls : undefined,
+    },
+  });
 }
 
 function generateMessageId() {
@@ -267,6 +314,8 @@ function detectUrlChange() {
     }
 
     setupObserver();
+  } else if (isProjectPage()) {
+    setTimeout(detectProject, 1500);
   } else if (projId !== currentProjectId) {
     currentProjectId = projId;
     if (convId) {
@@ -312,6 +361,10 @@ function init() {
       },
     });
     setTimeout(scanExistingMessages, 1000);
+  }
+
+  if (isProjectPage()) {
+    setTimeout(detectProject, 1500);
   }
 
   setupObserver();
