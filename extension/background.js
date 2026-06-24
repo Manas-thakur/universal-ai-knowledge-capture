@@ -45,7 +45,7 @@ async function flushAllConversations() {
 }
 
 const OFFSCREEN_DOC_PATH = 'offscreen/offscreen.html';
-const OFFSCREEN_DOC_REASON = 'FILE_SYSTEM_ACCESS';
+const OFFSCREEN_DOC_REASON = 'LOCAL_STORAGE';
 const INACTIVITY_TIMEOUT_MS = 300000;
 
 let offscreenAlive = false;
