@@ -10,7 +10,9 @@
     "offscreen"
   ],
   "host_permissions": [
+    "https://chatgpt.com/*",
     "https://*.chatgpt.com/*",
+    "https://claude.ai/*",
     "https://*.claude.ai/*"
   ],
   "background": {
@@ -22,12 +24,12 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://*.chatgpt.com/*"],
+      "matches": ["https://chatgpt.com/*", "https://*.chatgpt.com/*"],
       "js": ["lib/dedup.js", "content/chatgpt.js"],
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://*.claude.ai/*"],
+      "matches": ["https://claude.ai/*", "https://*.claude.ai/*"],
       "js": ["lib/dedup.js", "content/claude.js"],
       "run_at": "document_idle"
     }
