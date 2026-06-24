@@ -200,6 +200,18 @@ async function handleMessageCaptured(payload, tabId) {
     platform,
   });
 
+  if (attachments && attachments.length > 0) {
+    for (const att of attachments) {
+      handleAttachmentDetected({
+        platform,
+        conversation_id,
+        message_id,
+        url: att.url,
+        filename: att.filename || 'attachment',
+      });
+    }
+  }
+
   return { ok: true, deduped: false };
 }
 
