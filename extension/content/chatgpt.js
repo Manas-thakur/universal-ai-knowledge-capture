@@ -13,8 +13,8 @@ let currentConversationId = null;
 let currentProjectId = null;
 let currentTitle = 'Untitled';
 let observer = null;
-let knownMessageIds = new Set();
-let isCapturing = false;
+let fingerprintSet = new ContentFingerprintSet();
+let streamingTracker = new StreamingTracker(2000, 500);
 
 function extractConversationId() {
   const match = window.location.pathname.match(/\/c\/([a-zA-Z0-9-]+)/);
@@ -107,35 +107,7 @@ function getRole(messageElement) {
   return 'User';
 }
 
-function processMessage(messageElement) {
-  const role = getRole(messageElement);
-  const contentEl = messageElement.querySelector(SELECTORS.messageContent);
-  const content = extractContent(contentEl);
-  if (!content && role === 'User') return null;
-
-  const contentFingerprint = content.slice(0, 100);
-
-  if (role === 'Assistant') {
-    if (!content || content.length === 0) return null;
-  }
-
-  for (const known of knownMessageIds) {
-    if (known.endsWith(contentFingerprint)) return null;
-  }
-
-  const messageId = generateMessageId();
-  knownMessageIds.add(messageId);
-  knownMessageIds.add(messageId + ':' + contentFingerprint);
-
-  if (knownMessageIds.size > 2000) {
-    const arr = Array.from(knownMessageIds);
-    knownMessageIds = new Set(arr.slice(arr.length - 1000));
-  }
-
-  const model = role === 'Assistant' ? extractModel(messageElement) : null;
-  const attachments = extractAttachments(messageElement);
-  const timestamp = getTimestamp();
-
+function sendMessage(role, model, content, messageId, attachments) {
   chrome.runtime.sendMessage({
     type: 'MESSAGE_CAPTURED',
     payload: {
@@ -144,11 +116,75 @@ function processMessage(messageElement) {
       message_id: messageId,
       role,
       model,
-      timestamp,
+      timestamp: getTimestamp(),
       content,
-      attachments: attachments.length > 0 ? attachments : undefined,
+      attachments: attachments && attachments.length > 0 ? attachments : undefined,
     },
   });
+}
+
+function getContainerId(turnElement) {
+  const existing = turnElement.querySelector('[data-message-id]');
+  if (existing) return existing.getAttribute('data-message-id');
+  return turnElement.getAttribute('data-testid') || Math.random().toString(36).slice(2);
+}
+
+function processUserMessage(turnElement) {
+  const contentEl = turnElement.querySelector(SELECTORS.messageContent);
+  const content = extractContent(contentEl);
+  if (!content) return;
+
+  const fp = content.slice(0, 100);
+  if (fingerprintSet.hasFingerprint(fp)) return;
+
+  const messageId = generateMessageId();
+  fingerprintSet.add(messageId, fp);
+  const model = null;
+  const attachments = extractAttachments(turnElement);
+  sendMessage('User', model, content, messageId, attachments);
+}
+
+function processAssistantMessage(turnElement) {
+  const contentEl = turnElement.querySelector(SELECTORS.messageContent);
+  const initialContent = extractContent(contentEl);
+
+  if (initialContent && initialContent.length > 10) {
+    const fp = initialContent.slice(0, 100);
+    if (fingerprintSet.hasFingerprint(fp)) return;
+
+    const messageId = generateMessageId();
+    fingerprintSet.add(messageId, fp);
+    const model = extractModel(turnElement);
+    const attachments = extractAttachments(turnElement);
+    sendMessage('Assistant', model, initialContent, messageId, attachments);
+    return;
+  }
+
+  const containerId = getContainerId(turnElement);
+  streamingTracker.startStream(
+    containerId,
+    () => extractContent(contentEl),
+    (stableContent) => {
+      if (!stableContent) return;
+      const fp = stableContent.slice(0, 100);
+      if (fingerprintSet.hasFingerprint(fp)) return;
+
+      const messageId = generateMessageId();
+      fingerprintSet.add(messageId, fp);
+      const model = extractModel(turnElement);
+      const attachments = extractAttachments(turnElement);
+      sendMessage('Assistant', model, stableContent, messageId, attachments);
+    }
+  );
+}
+
+function processMessage(turnElement) {
+  const role = getRole(turnElement);
+  if (role === 'User') {
+    processUserMessage(turnElement);
+  } else if (role === 'Assistant') {
+    processAssistantMessage(turnElement);
+  }
 }
 
 function scanExistingMessages() {
@@ -161,11 +197,10 @@ function scanExistingMessages() {
 function setupObserver() {
   if (observer) observer.disconnect();
 
-  const chatContainer = document.querySelector('[data-testid^="conversation-turn-"]')?.parentElement;
-
-  if (!chatContainer) {
+  const firstTurn = document.querySelector(SELECTORS.turnWrapper);
+  if (!firstTurn) {
     observer = new MutationObserver(() => {
-      const found = document.querySelector('[data-testid^="conversation-turn-"]');
+      const found = document.querySelector(SELECTORS.turnWrapper);
       if (found) {
         observer.disconnect();
         setupObserver();
@@ -175,15 +210,24 @@ function setupObserver() {
     return;
   }
 
+  const chatContainer = firstTurn.parentElement;
+  if (!chatContainer) return;
+
   observer = new MutationObserver((mutations) => {
-    let hasNewContent = false;
+    let hasNewTurns = false;
     for (const mutation of mutations) {
-      if (mutation.addedNodes.length > 0) {
-        hasNewContent = true;
-        break;
+      for (const node of mutation.addedNodes) {
+        if (node.nodeType === 1 && (
+          node.matches?.(SELECTORS.turnWrapper) ||
+          node.querySelector?.(SELECTORS.turnWrapper)
+        )) {
+          hasNewTurns = true;
+          break;
+        }
       }
+      if (hasNewTurns) break;
     }
-    if (hasNewContent) {
+    if (hasNewTurns) {
       const turns = document.querySelectorAll(SELECTORS.turnWrapper);
       const lastTurn = turns[turns.length - 1];
       if (lastTurn) {
@@ -192,8 +236,7 @@ function setupObserver() {
     }
   });
 
-  const container = chatContainer.parentElement || chatContainer;
-  observer.observe(container, { childList: true, subtree: true });
+  observer.observe(chatContainer, { childList: true, subtree: true });
 }
 
 function detectUrlChange() {
@@ -202,10 +245,11 @@ function detectUrlChange() {
   const title = extractTitle();
 
   if (convId !== currentConversationId) {
+    streamingTracker.cancelAll();
     currentConversationId = convId;
     currentProjectId = projId;
     currentTitle = title;
-    knownMessageIds = new Set();
+    fingerprintSet = new ContentFingerprintSet();
 
     if (convId) {
       chrome.runtime.sendMessage({
