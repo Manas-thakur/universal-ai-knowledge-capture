@@ -501,10 +501,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       handleGetStatus().then(sendResponse);
       return true;
     case 'VAULT_INIT':
-      handleVaultInit(msg.payload).then(sendResponse);
+      handleVaultInit().then(sendResponse);
       return true;
     case 'VAULT_REAUTH':
-      handleVaultReauth(msg.payload).then(sendResponse);
+      handleVaultReauth().then(sendResponse);
       return true;
     default:
       sendResponse({ ok: false, error: 'unknown_type' });
@@ -521,4 +521,13 @@ chrome.runtime.onStartup.addListener(() => {
 
 chrome.runtime.onInstalled.addListener(() => {
   closeOffscreenDocument();
+});
+
+chrome.action.onClicked.addListener(() => {
+  chrome.windows.create({
+    url: 'popup/popup.html',
+    type: 'popup',
+    width: 400,
+    height: 500,
+  });
 });
