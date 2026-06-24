@@ -22,12 +22,12 @@
   "content_scripts": [
     {
       "matches": ["https://*.chatgpt.com/*"],
-      "js": ["content/chatgpt.js"],
+      "js": ["lib/dedup.js", "content/chatgpt.js"],
       "run_at": "document_idle"
     },
     {
       "matches": ["https://*.claude.ai/*"],
-      "js": ["content/claude.js"],
+      "js": ["lib/dedup.js", "content/claude.js"],
       "run_at": "document_idle"
     }
   ],

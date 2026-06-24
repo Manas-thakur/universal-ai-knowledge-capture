@@ -1,4 +1,6 @@
-importScripts('lib/db.js');
+importScripts('lib/db.js', 'lib/dedup.js');
+
+const messageDedupCache = new LRUCache(2000);
 
 const OFFSCREEN_DOC_PATH = 'offscreen/offscreen.html';
 const OFFSCREEN_DOC_REASON = 'FILE_SYSTEM_ACCESS';
@@ -139,9 +141,15 @@ function buildMessageBlock(role, model, timestamp, content, messageId, attachmen
 async function handleMessageCaptured(payload, tabId) {
   const { platform, conversation_id, message_id, role, model, timestamp, content, attachments } = payload;
 
-  if (await isMessageProcessed(conversation_id, message_id)) {
+  const dedupKey = `${conversation_id}:${message_id}`;
+  if (messageDedupCache.has(dedupKey)) {
     return { ok: true, deduped: true };
   }
+  if (await isMessageProcessed(conversation_id, message_id)) {
+    messageDedupCache.add(dedupKey);
+    return { ok: true, deduped: true };
+  }
+  messageDedupCache.add(dedupKey);
 
   let filePath;
   const exists = await sendToOffscreen({
