@@ -1,5 +1,35 @@
 let vaultHandle = null;
 
+async function loadHandleFromIndexedDB() {
+  try {
+    const db = await new Promise((resolve, reject) => {
+      const req = indexedDB.open('vault-db');
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    const tx = db.transaction('directory_handle', 'readonly');
+    const store = tx.objectStore('directory_handle');
+    const result = await new Promise((resolve) => {
+      const req = store.get('vault');
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => resolve(null);
+    });
+    db.close();
+    if (result && result.handle) {
+      vaultHandle = result.handle;
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+async function ensureHandle() {
+  if (vaultHandle) return true;
+  return loadHandleFromIndexedDB();
+}
+
 async function ensureDir(pathParts) {
   let dir = vaultHandle;
   for (const part of pathParts) {
@@ -9,6 +39,7 @@ async function ensureDir(pathParts) {
 }
 
 async function writeFile(relativePath, content) {
+  if (!(await ensureHandle())) return { ok: false, error: 'no_vault_handle' };
   const parts = relativePath.split('/');
   const filename = parts.pop();
   const dir = await ensureDir(parts);
@@ -20,6 +51,7 @@ async function writeFile(relativePath, content) {
 }
 
 async function appendFile(relativePath, content) {
+  if (!(await ensureHandle())) return { ok: false, error: 'no_vault_handle' };
   const parts = relativePath.split('/');
   const filename = parts.pop();
   const dir = await ensureDir(parts);
@@ -40,6 +72,7 @@ async function appendFile(relativePath, content) {
 }
 
 async function readFile(relativePath) {
+  if (!(await ensureHandle())) return { ok: false, error: 'no_vault_handle' };
   const parts = relativePath.split('/');
   const filename = parts.pop();
   const dir = await ensureDir(parts);
@@ -49,6 +82,7 @@ async function readFile(relativePath) {
 }
 
 async function fileExists(relativePath) {
+  if (!(await ensureHandle())) return { ok: false, error: 'no_vault_handle' };
   const parts = relativePath.split('/');
   const filename = parts.pop();
   const dir = await ensureDir(parts);
@@ -61,6 +95,7 @@ async function fileExists(relativePath) {
 }
 
 async function getFileSize(relativePath) {
+  if (!(await ensureHandle())) return { ok: false, error: 'no_vault_handle' };
   const parts = relativePath.split('/');
   const filename = parts.pop();
   const dir = await ensureDir(parts);
@@ -86,7 +121,8 @@ async function downloadAndSaveAttachment(url, conversationId, platform) {
   const ext = url.split('.').pop()?.split('?')[0] || 'bin';
 
   const relPath = `platforms/${platform}/attachments/${prefix}/${sha256}.${ext}`;
-  await writeFile(relPath, blob);
+  const r1 = await writeFile(relPath, blob);
+  if (!r1.ok) return r1;
 
   const metaContent = `---
 sha256: "${sha256}"
@@ -103,16 +139,12 @@ source_platform: "${platform}"
   return { ok: true, sha256, path: relPath };
 }
 
-async function init(handle) {
-  vaultHandle = handle;
-  return { ok: true };
-}
+loadHandleFromIndexedDB().then((hasHandle) => {
+  chrome.runtime.sendMessage({ type: 'OFFSCREEN_READY', payload: { has_handle: hasHandle } });
+});
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   switch (msg.type) {
-    case 'INIT':
-      init(msg.payload.handle).then(sendResponse);
-      return true;
     case 'FILE_WRITE':
       writeFile(msg.payload.path, msg.payload.content).then(sendResponse);
       return true;

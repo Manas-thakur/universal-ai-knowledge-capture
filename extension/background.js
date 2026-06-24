@@ -46,7 +46,7 @@ async function flushAllConversations() {
 
 const OFFSCREEN_DOC_PATH = 'offscreen/offscreen.html';
 const OFFSCREEN_DOC_REASON = 'FILE_SYSTEM_ACCESS';
-const INACTIVITY_TIMEOUT_MS = 60000;
+const INACTIVITY_TIMEOUT_MS = 300000;
 
 let offscreenAlive = false;
 let inactivityTimer = null;
@@ -473,7 +473,6 @@ async function handleGetStatus() {
 async function handleVaultInit(payload) {
   const { handle } = payload;
   await setDirectoryHandle(handle);
-  await sendToOffscreen({ type: 'INIT', payload: { handle } });
   return { ok: true };
 }
 
@@ -489,7 +488,6 @@ async function handleVaultReauth(payload) {
     }
   } catch {}
   await setDirectoryHandle(handle);
-  await sendToOffscreen({ type: 'INIT', payload: { handle } });
   return { ok: true };
 }
 
