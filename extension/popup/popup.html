@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Knowledge Capture</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div id="app">
+    <div id="setup-view" class="view hidden">
+      <h2>AI Knowledge Capture</h2>
+      <p>Select a vault directory to store your AI conversations.</p>
+      <button id="select-dir-btn">Select Vault Directory</button>
+      <p class="hint">This directory will contain all captured conversations, projects, and attachments.</p>
+    </div>
+
+    <div id="status-view" class="view hidden">
+      <h2>AI Knowledge Capture</h2>
+      <div class="status-grid">
+        <div class="stat">
+          <span class="stat-label">Vault</span>
+          <span id="vault-path" class="stat-value">-</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Conversations</span>
+          <span id="conv-count" class="stat-value">0</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Last Capture</span>
+          <span id="last-capture" class="stat-value">-</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">ChatGPT</span>
+          <span id="chatgpt-status" class="stat-value">idle</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Claude</span>
+          <span id="claude-status" class="stat-value">idle</span>
+        </div>
+      </div>
+      <button id="re-auth-btn" class="hidden">Re-authorize Vault Access</button>
+    </div>
+
+    <div id="error-view" class="view hidden">
+      <h2>Vault Access Lost</h2>
+      <p id="error-msg">Permission to access the vault directory has been lost.</p>
+      <button id="error-reauth-btn">Re-authorize Vault Access</button>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "Universal AI Knowledge Capture",
+  "version": "1.0.0",
+  "description": "Automatically capture AI conversations, projects, and attachments to local Markdown files.",
+  "permissions": [
+    "storage",
+    "scripting",
+    "alarms"
+  ],
+  "host_permissions": [
+    "https://*.chatgpt.com/*",
+    "https://*.claude.ai/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "AI Knowledge Capture"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*.chatgpt.com/*"],
+      "js": ["content/chatgpt.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://*.claude.ai/*"],
+      "js": ["content/claude.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["offscreen/offscreen.html"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
