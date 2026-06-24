@@ -10,15 +10,9 @@ async function sendToBackground(msg) {
 async function selectDirectory() {
   try {
     const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
-    const response = await sendToBackground({
-      type: 'VAULT_INIT',
-      payload: { handle },
-    });
-    if (response && response.ok) {
-      showStatusView();
-    } else {
-      showError('Failed to initialize vault. Please try again.');
-    }
+    await setDirectoryHandle(handle);
+    await sendToBackground({ type: 'VAULT_INIT' });
+    showStatusView();
   } catch (err) {
     if (err.name !== 'AbortError') {
       showError(`Could not access directory: ${err.message}`);
@@ -29,15 +23,9 @@ async function selectDirectory() {
 async function reauthorizeDirectory() {
   try {
     const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
-    const response = await sendToBackground({
-      type: 'VAULT_REAUTH',
-      payload: { handle },
-    });
-    if (response && response.ok) {
-      showStatusView();
-    } else {
-      showError('Re-authorization failed. Please try again.');
-    }
+    await setDirectoryHandle(handle);
+    await sendToBackground({ type: 'VAULT_REAUTH' });
+    showStatusView();
   } catch (err) {
     if (err.name !== 'AbortError') {
       showError(`Re-authorization failed: ${err.message}`);

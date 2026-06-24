@@ -470,24 +470,14 @@ async function handleGetStatus() {
   };
 }
 
-async function handleVaultInit(payload) {
-  const { handle } = payload;
-  await setDirectoryHandle(handle);
-  return { ok: true };
+async function handleVaultInit() {
+  const handle = await getDirectoryHandle();
+  return { ok: !!handle };
 }
 
-async function handleVaultReauth(payload) {
-  const { handle } = payload;
-  try {
-    const permission = await handle.queryPermission({ mode: 'readwrite' });
-    if (permission !== 'granted') {
-      const result = await handle.requestPermission({ mode: 'readwrite' });
-      if (result !== 'granted') {
-        return { ok: false, error: 'permission_denied' };
-      }
-    }
-  } catch {}
-  await setDirectoryHandle(handle);
+async function handleVaultReauth() {
+  const handle = await getDirectoryHandle();
+  if (!handle) return { ok: false, error: 'no_handle' };
   return { ok: true };
 }
 
